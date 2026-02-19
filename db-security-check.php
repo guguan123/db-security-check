@@ -13,18 +13,32 @@ class GG_DB_Security_Monitor {
 	const OPTION_NAME = 'gg_db_monitor_settings';
 	const RESULT_OPTION_NAME = 'gg_db_monitor_result';
 
+	/** @var self 静态实例变量 */
+	private static $instance = null;
+
+	// 静态初始化入口
+	public static function init() {
+		if (null === self::$instance) {
+			self::$instance = new self();
+
+			// 核心生命周期钩子
+			register_activation_hook(__FILE__, array(self::$instance, 'activate'));
+			register_deactivation_hook(__FILE__, array(self::$instance, 'deactivate'));
+
+			// 卸载钩子
+			register_uninstall_hook(__FILE__, array(__CLASS__, 'uninstall'));
+		}
+		return self::$instance;
+	}
+
+	// 构造函数设为私有或普通，但在 init 中调用
 	public function __construct() {
 		add_action('admin_menu', array($this, 'create_menu'));
 		add_action('gg_db_weekly_check_event', array($this, 'run_security_check_cron'));
 		add_action('admin_notices', array($this, 'display_admin_alerts'));
-
-		// 激活与停用
-		register_activation_hook(__FILE__, array($this, 'activate'));
-		register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-		register_uninstall_hook(__FILE__, ['GG_DB_Security_Monitor', 'uninstall']);
 	}
 
-	public function run_security_check() {
+	private function run_security_check() {
 		global $wpdb;
 		$alerts = [];
 		$settings = get_option(self::OPTION_NAME);
@@ -71,6 +85,7 @@ class GG_DB_Security_Monitor {
 		global $wpdb;
 		
 		if (isset($_POST['save_settings'])) {
+			if (!current_user_can('manage_options')) wp_die(__('您没有权限操作此页面喵！'));
 			// 校验 Nonce
 			check_admin_referer('gg_db_save_action');
 			// 将逗号或换行分隔的字符串转为数组
@@ -82,7 +97,7 @@ class GG_DB_Security_Monitor {
 				'allowed_databases' => array_values(array_unique($db_array))
 			);
 			update_option(self::OPTION_NAME, $new_settings);
-			echo '<div class="updated"><p>设置已保存喵！</p></div>';
+			echo '<div class="updated notice is-dismissible"><p>设置已保存喵！</p></div>';
 		}
 
 		$settings = get_option(self::OPTION_NAME);
@@ -96,13 +111,12 @@ class GG_DB_Security_Monitor {
 			<h1>🔒 MySQL Security Monitor</h1>
 			<p>当前数据库：<code><?php echo esc_html($wpdb->dbname); ?></code></p>
 			<hr>
-
 			<h3>当前状态：</h3>
 			<?php if (empty($alerts)): ?>
-				<div class="notice notice-success inline"><p><strong>✅ 数据库状态一切正常喵~</strong></p></div>
+				<div class="notice notice-success inline"><p><strong>✅ 一切正常喵~</strong></p></div>
 			<?php else: ?>
 				<div class="notice notice-error inline">
-					<p><strong>⚠️ 发现潜在威胁：</strong></p>
+					<p><strong>⚠️ 发现隐患：</strong></p>
 					<ul><?php foreach ($alerts as $alert) echo "<li>".esc_html($alert)."</li>"; ?></ul>
 				</div>
 			<?php endif; ?>
@@ -113,19 +127,17 @@ class GG_DB_Security_Monitor {
 				<table class="form-table">
 					<tr>
 						<th scope="row">邮件通知</th>
-						<td>
-							<label><input type="checkbox" name="email_notify" <?php checked(1, $settings['email_notify'] ?? 0); ?>> 当检测到异常时发送邮件至管理员</label>
-						</td>
+						<td><input type="checkbox" name="email_notify" <?php checked(1, $settings['email_notify'] ?? 0); ?>> 开启</td>
 					</tr>
 					<tr>
 						<th scope="row">数据库白名单</th>
 						<td>
 							<textarea name="allowed_databases" rows="6" class="large-text code" placeholder="每行一个数据库名称"><?php echo esc_textarea($current_db_list); ?></textarea>
-							<p class="description">在此列出的数据库不会触发警报。当前库：<strong><?php echo $wpdb->dbname; ?></strong></p>
+							<p class="description">当前使用的数据库：<strong><?php echo $wpdb->dbname; ?></strong></p>
 						</td>
 					</tr>
 				</table>
-				<?php submit_button('保存设置', 'primary', 'save_settings'); ?>
+				<?php submit_button('保存设置'); ?>
 			</form>
 		</div>
 		<?php
@@ -142,7 +154,7 @@ class GG_DB_Security_Monitor {
 		if (!empty($check_result['result'])) {
 			?>
 			<div class="notice notice-error is-dismissible">
-				<p><strong>🚨 数据库安全警告！</strong> 检测到 <?php echo count($check_result['result']); ?> 项异常，请 <a href="<?php echo admin_url('options-general.php?page=gg-db-monitor'); ?>">立即前往处理</a> 喵！</p>
+				<p><strong>🚨 数据库警告！</strong> 发现异常，请 <a href="<?php echo admin_url('options-general.php?page=gg-db-monitor'); ?>">查看详情</a> 喵！</p>
 			</div>
 			<?php
 		}
@@ -154,11 +166,9 @@ class GG_DB_Security_Monitor {
 		// 初始化白名单
 		$settings = get_option(self::OPTION_NAME);
 		if (!$settings) {
-			// 获取当前库名 + 系统库名
-			$default_allowed = array($wpdb->dbname, 'information_schema', 'performance_schema', 'mysql', 'sys');
 			update_option(self::OPTION_NAME, array(
 				'email_notify' => 1,
-				'allowed_databases' => $default_allowed
+				'allowed_databases' => array($wpdb->dbname, 'information_schema', 'performance_schema', 'mysql', 'sys')
 			));
 		}
 		if (!wp_next_scheduled('gg_db_weekly_check_event')) {
@@ -169,11 +179,12 @@ class GG_DB_Security_Monitor {
 	public function deactivate() {
 		wp_clear_scheduled_hook('gg_db_weekly_check_event');
 	}
+
 	public static function uninstall() {
 		delete_option(self::OPTION_NAME);
 		delete_option(self::RESULT_OPTION_NAME);
 	}
 }
 
-
-new GG_DB_Security_Monitor();
+// 启动插件
+GG_DB_Security_Monitor::init();
