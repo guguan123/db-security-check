@@ -1,9 +1,18 @@
 <?php
 /*
 Plugin Name: MySQL Security Monitor
+Plugin URI: https://github.com/guguan123/db-security-check
 Description: 监控数据库是否有异常
-Version: 1.4
+Version: 1.1
 Author: GuGuan123's Cat
+Author URI: https://gemini.google.com
+License: MIT
+License URI: https://choosealicense.com/licenses/mit/
+Text Domain: db-security-check
+Requires at least: 6.0
+Tested up to: 6.8
+PHP Version: 8.2
+Requires PHP: 7.0
 */
 
 if (!defined('ABSPATH')) exit;
@@ -32,7 +41,7 @@ class GG_DB_Security_Monitor {
 	}
 
 	// 构造函数设为私有或普通，但在 init 中调用
-	public function __construct() {
+	private function __construct() {
 		add_action('admin_menu', array($this, 'create_menu'));
 		add_action('gg_db_weekly_check_event', array($this, 'run_security_check_cron'));
 		add_action('admin_notices', array($this, 'display_admin_alerts'));
@@ -84,7 +93,7 @@ class GG_DB_Security_Monitor {
 	public function settings_page() {
 		global $wpdb;
 		
-		if (isset($_POST['save_settings'])) {
+		if (isset($_POST['submit'])) {
 			if (!current_user_can('manage_options')) wp_die(__('您没有权限操作此页面喵！'));
 			// 校验 Nonce
 			check_admin_referer('gg_db_save_action');
@@ -98,9 +107,10 @@ class GG_DB_Security_Monitor {
 			);
 			update_option(self::OPTION_NAME, $new_settings);
 			echo '<div class="updated notice is-dismissible"><p>设置已保存喵！</p></div>';
+			$settings = $new_settings;
+		} else {
+			$settings = get_option(self::OPTION_NAME);
 		}
-
-		$settings = get_option(self::OPTION_NAME);
 
 		// 每次打开页面都自动运行检测
 		$alerts = $this->run_security_check();
