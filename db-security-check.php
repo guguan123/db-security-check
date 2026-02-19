@@ -118,7 +118,7 @@ class GG_DB_Security_Monitor {
 
 		?>
 		<div class="wrap">
-			<h1>🔒 MySQL Security Monitor</h1>
+			<h1>MySQL Security Monitor</h1>
 			<p>当前数据库：<code><?php echo esc_html($wpdb->dbname); ?></code></p>
 			<hr>
 			<h3>当前状态：</h3>
@@ -143,7 +143,6 @@ class GG_DB_Security_Monitor {
 						<th scope="row">数据库白名单</th>
 						<td>
 							<textarea name="allowed_databases" rows="6" class="large-text code" placeholder="每行一个数据库名称"><?php echo esc_textarea($current_db_list); ?></textarea>
-							<p class="description">当前使用的数据库：<strong><?php echo $wpdb->dbname; ?></strong></p>
 						</td>
 					</tr>
 				</table>
