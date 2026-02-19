@@ -4,7 +4,7 @@ Plugin Name: MySQL Security Monitor
 Plugin URI: https://github.com/guguan123/db-security-check
 Description: 监控数据库是否有异常
 Version: 1.1
-Author: GuGuan123's Cat
+Author: A cat
 Author URI: https://gemini.google.com
 License: MIT
 License URI: https://github.com/guguan123/db-security-check/blob/main/LICENSE
@@ -173,8 +173,7 @@ class GG_DB_Security_Monitor {
 		global $wpdb;
 
 		// 初始化白名单
-		$settings = get_option(self::OPTION_NAME);
-		if (!$settings) {
+		if (!get_option(self::OPTION_NAME)) {
 			update_option(self::OPTION_NAME, array(
 				'email_notify' => 1,
 				'allowed_databases' => array($wpdb->dbname, 'information_schema', 'performance_schema', 'mysql', 'sys')
