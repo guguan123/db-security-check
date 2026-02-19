@@ -7,7 +7,7 @@ Version: 1.1
 Author: GuGuan123's Cat
 Author URI: https://gemini.google.com
 License: MIT
-License URI: https://choosealicense.com/licenses/mit/
+License URI: https://github.com/guguan123/db-security-check/blob/main/LICENSE
 Text Domain: db-security-check
 Requires at least: 6.0
 Tested up to: 6.8
